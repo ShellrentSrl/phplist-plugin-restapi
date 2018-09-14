@@ -2,6 +2,9 @@
 
 [![Build Status](https://travis-ci.org/phpList/phplist-plugin-restapi.svg?branch=master)](https://travis-ci.org/phpList/phplist-plugin-restapi)
 
+## Edits
+
+Added capability to add a User by Email to the blacklist (both user and email will be blacklisted).
 
 ## About this plugin
 

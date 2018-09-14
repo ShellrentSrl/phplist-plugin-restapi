@@ -311,6 +311,7 @@ class Subscribers
      * [*foreignkey] {string} Foreign key.<br/>
      * [*htmlemail] {integer} 1=html emails, 0=no html emails.<br/>
      * [*subscribepage] {integer} subscribepage to sign up to.<br/>
+     * [*confirmed] {integer} 1=confirmed, 0=unconfirmed.<br/>
      * [*lists] {string} comma-separated list IDs.<br/>
      * </p>
      * <p><strong>Returns:</strong><br/>
@@ -320,8 +321,8 @@ class Subscribers
     public static function subscribe()
     {
         $sql = 'INSERT INTO '.$GLOBALS['tables']['user'].' 
-          (email, htmlemail, foreignkey, subscribepage, entered, uniqid) 
-          VALUES (:email, :htmlemail, :foreignkey, :subscribepage, now(), :uniqid);';
+          (email, htmlemail, foreignkey, subscribepage, entered, uniqid, confirmed) 
+          VALUES (:email, :htmlemail, :foreignkey, :subscribepage, now(), :uniqid, :confirmed);';
 
         $uniqueID = Common::createUniqId();
         $subscribePage = sprintf('%d',$_REQUEST['subscribepage']);
@@ -332,6 +333,8 @@ class Subscribers
         $listNames = '';
         $lists = explode(',',$_REQUEST['lists']);
         
+		$confirmed = $_REQUEST['confirmed'] ? true : false;
+		
         try {
             $db = PDO::getConnection();
             $stmt = $db->prepare($sql);
@@ -341,6 +344,7 @@ class Subscribers
             $stmt->bindParam('foreignkey', $_REQUEST['foreignkey'], PDO::PARAM_STR);
             $stmt->bindParam('subscribepage', $subscribePage, PDO::PARAM_INT);
             $stmt->bindParam('uniqid', $uniqueID, PDO::PARAM_STR);
+            $stmt->bindParam('confirmed', $confirmed, PDO::PARAM_BOOL);
             $stmt->execute();
             $subscriberId = $db->lastInsertId();
             foreach ($lists as $listId) {
@@ -350,14 +354,21 @@ class Subscribers
                 $stmt->execute();
                 $listNames .= "\n  * ".listname($listId);
             }
-            $subscribeMessage = getUserConfig("subscribemessage:$subscribePage", $subscriberId);
-            $subscribeMessage = str_replace('[LISTS]',$listNames,$subscribeMessage);
-            
-            $subscribePage = sprintf('%d',$_REQUEST['subscribepage']);
-            sendMail($_REQUEST['email'], getConfig("subscribesubject:$subscribePage"), $subscribeMessage );
+			
+			/* Send subscribe confirm email */
+			if( $confirmed ) {
+				$subscribeMessage = getUserConfig("subscribemessage:$subscribePage", $subscriberId);
+				$subscribeMessage = str_replace('[LISTS]',$listNames,$subscribeMessage);
+
+				$subscribePage = sprintf('%d',$_REQUEST['subscribepage']);
+				sendMail($_REQUEST['email'], getConfig("subscribesubject:$subscribePage"), $subscribeMessage );
+			}
+			
             addUserHistory($_REQUEST['email'], 'Subscription', 'Subscription via the Rest-API plugin');
-            $db = null;
+            
+			$db = null;
             self::SubscriberGet($subscriberId);
+			
         } catch (\Exception $e) {
             Response::outputError($e);
         }
