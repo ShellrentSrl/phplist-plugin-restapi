@@ -119,5 +119,101 @@ class Blacklist
 
     }
 
+    /**
+     * Adds an email to blacklist
+     *
+     * <p><strong>Parameters:</strong><br/>
+     * [*email] {string} Email to remove from blacklist<br/>
+     * <p><strong>Returns:</strong><br/>
+     * Messages with the actions executed.
+     * </p>
+     */
+    public static function addEmailToBlacklist($email = ''){
+		if($email == ''){
+            $email = $_REQUEST['email'];
+        }
+		
+        if ($email == '') {
+            Response::outputErrorMessage('Email param is empty');
+        }
+		
+		$db = PDO::getConnection();
+        $response = new Response();
+		
+		$sql = sprintf( "SELECT %s.id FROM %s WHERE %s.email = :email AND %s.blacklisted = '0' ",
+			$GLOBALS['tables']['user'],
+			$GLOBALS['tables']['user'],
+			$GLOBALS['tables']['user'],
+			$GLOBALS['tables']['user']
+		);
+		
+        try {
+            $stmt = $db->prepare($sql);
+            $stmt->bindParam("email", $email, PDO::PARAM_STR);
+            $stmt->execute();
+			$result = $stmt->fetch( PDO::FETCH_OBJ );
+			
+        } catch(\Exception $e) {
+            Response::outputError($e);
+        }
+		
+		/* Email already blacklisted */
+		if( !$result ) {
+			$response->setData('add_blacklist', []);
+			
+			$db = null;
+			$response->output();
+			die(0);
+		}
+		
+		/* Add to Blacklist */
+		$response->setData('add_blacklist', $result);
+		
+		$sqlUser = sprintf( "UPDATE %s SET blacklisted = '1' WHERE %s.email = :email",
+			$GLOBALS['tables']['user'],
+			$GLOBALS['tables']['user']
+		);
+		
+		$sqlUserBlacklist = sprintf( "INSERT INTO %s ( email, added ) VALUES ( :email, NOW() )",
+			$GLOBALS['tables']['user_blacklist']
+		);
+		
+		$sqlUserBlacklistData = sprintf( "INSERT INTO %s ( email, name, data ) VALUES ( :email, 'reason', 'Blacklisted by API' )",
+			$GLOBALS['tables']['user_blacklist_data']
+		);
+		
+		try {
+			$stmt = $db->prepare( $sqlUser );
+			$stmt->bindParam( 'email', $email, PDO::PARAM_STR );
+			$success = $stmt->execute();
 
+			if( !$success ) {
+				Response::outputError( 'Could not blacklist user' );
+			}
+			
+			$stmt = $db->prepare( $sqlUserBlacklist );
+			$stmt->bindParam( 'email', $email, PDO::PARAM_STR );
+			$success = $stmt->execute();
+			
+			if( !$success ) {
+				Response::outputError( 'Could not set user blacklisted added time' );
+			}
+			
+			$stmt = $db->prepare( $sqlUserBlacklistData );
+			$stmt->bindParam( 'email', $email, PDO::PARAM_STR );
+			$success = $stmt->execute();
+			
+			if( !$success ) {
+				Response::outputError( 'Could not set user blacklisted reason' );
+			}
+			
+			$db = null;
+			$response->output();
+			
+        } catch(\Exception $e) {
+            Response::outputError($e);
+        }
+		
+        die(0);
+	}
 }
