@@ -356,7 +356,7 @@ class Subscribers
             }
 			
 			/* Send subscribe confirm email */
-			if( $confirmed ) {
+			if( !$confirmed ) {
 				$subscribeMessage = getUserConfig("subscribemessage:$subscribePage", $subscriberId);
 				$subscribeMessage = str_replace('[LISTS]',$listNames,$subscribeMessage);
 
